@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="./main.css">
-    <script src="./db.js" defer></script>
-    <script src="./index.js" defer></script>
+    <script src="./db.js"></script>
+    <script src="./index.js"></script>
     <title>Document</title>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="myapp"></div>
+    <script>
+        app(document.getElementById('myapp'));
+    </script>
 </body>
 </html>

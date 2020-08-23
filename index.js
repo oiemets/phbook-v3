@@ -6,11 +6,17 @@ const state = {
 
 // [{name: 'Alex', phone: '1234'}, {name: 'Bob', phone: '1234'}]
 
-app();
 
-function app(){
-    const root = document.querySelector('#root');
-    root.append(navView({loggedIn: true, listener: navListener}));    
+function app(root) {
+    root.append(navView({loggedIn: true, listener: createNavListener(root)}));
+}
+
+function unorderedList(items) {
+    return items.reduce(
+        (result, {content, href}) =>
+            result + `<li><a href="${href}">${content}</a></li>`,
+        ''
+    );
 }
 
 function navView({loggedIn, listener}) {
@@ -18,22 +24,21 @@ function navView({loggedIn, listener}) {
     const nav = document.createElement('nav');
     nav.className = 'container';
     const ul = document.createElement('ul');
-    ul.innerHTML = `
-        ${
-            loggedIn ? `
-                <li><a href="currentUser">${state.email}</a></li>
-                <li><a href="contacts">contacts</a></li>
-                <li><a href="add">add contact</a></li>
-                <li><a href="logout">log out</a></li>
-            `
-            :
-            `
-                <li></li>
-                <li><a href="login">log in</a></li>
-                <li><a href="signin">sign in</a></li>
-            `
-        }
-    `
+    ul.innerHTML =
+        unorderedList(
+            loggedIn ?
+                [
+                    {href: 'currentUser', content: state.email},
+                    {href: 'contacts', content: 'contacts'},
+                    {href: 'add', content: 'add contact'},
+                    {href: 'logout', content: 'log out'}
+                ] :
+                [
+                    {href: 'login', content: 'log in'},
+                    {href: 'signin', content: 'sign in'},
+                ]
+        );
+
     nav.addEventListener('click', e => {
         e.preventDefault();
         if(e.target.tagName === 'A') {
@@ -45,65 +50,122 @@ function navView({loggedIn, listener}) {
     return header;
 };
 
+const inputsMap = {
+    email: {type: 'text', name: 'email', placeholder: 'email'},
+    password: {type: 'password', name: 'password', placeholder: 'password'},
+    fullname: {type: 'text', name: 'fullname', placeholder: 'full name'},
+    phone: {type: 'text', name: 'phone', placeholder: 'phone'},
+    address: {type: 'text', name: 'address', placeholder: 'address'},
+    desc: {type: 'text', name: 'desc', placeholder: 'description'}
+}
+
+const inputTemplate = ({type, name, placeholder}) =>
+    `<input type=${type} name=${name} placeholder=${placeholder} />`;
+
+const getFormBody = (inputs, button) =>
+    inputs
+        .map(name => inputsMap[name])
+        .map(inputTemplate)
+        .join('')
+        + button
+
+
+
+function callEventMethod(method, elem, events) {
+    events.forEach(([event, callback]) => {
+        elem[method](event, callback);
+    })
+}
+
+function subscribeFormEvents(form, div) {
+    const onSubmit = e => {
+        e.preventDefault();
+        new FormData(form);
+    };
+    const onFormData = e => {
+        let data = e.formData;
+        const formData = Object.fromEntries(data.entries());
+        localStorage.setItem('data', JSON.stringify(formData));
+        form.reset();
+    };
+    const onClickOutside = e => {
+        if (e.target.className === 'form_holder') {
+            div.remove();
+
+            callEventMethod(
+                'removeEventListener',
+                form,
+                [
+                    ['submit', onSubmit],
+                    ['formdata', onFormData]
+                ]
+            );
+            callEventMethod(
+                'removeEventListener',
+                div,
+                [['click', onClickOutside]]
+            )
+        }
+    };
+
+    callEventMethod(
+        'addEventListener',
+        form,
+        [
+            ['submit', onSubmit],
+            ['formdata', onFormData]
+        ],
+    );
+
+    callEventMethod('addEventListener', div, [['click', onClickOutside]])
+}
+
 function form({type}) {
     const div = document.createElement('div');
     div.className = 'form_holder';
     const form = document.createElement('form');
     form.className = 'form';
-    form.innerHTML = `
-        ${
-            (type === 'login') ? `
-                <input type="text" name="email" placeholder="email">
-                <input type="password" name="password" placeholder="password">
-                <button>log in</button>` : 
-            (type === 'signin') ? `
-                <input type="text" name="fullname" placeholder="full name">
-                <input type="text" name="email" placeholder="email">
-                <input type="text" name="phone" placeholder="phone">
-                <input type="text" name="address" placeholder="address">
-                <input type="password" name="password" placeholder="password">
-                <button>sign in</button>
-            ` : 
-            (type === 'add') ?
-            `
-                <input type="text" name="fullname" placeholder="full name">
-                <input type="text" name="email" placeholder="email">
-                <input type="text" name="phone" placeholder="phone">
-                <input type="text" name="address" placeholder="address">
-                <input type="text" name="desc" placeholder="description">
-                <button>add</button>
-            ` :
-            '<p>nothing</p>'
-        }
-    `;
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        new FormData(form);
-    });
-    form.addEventListener('formdata', (e) => {
-        let data = e.formData;
-        const formData = Object.fromEntries(data.entries());
-        localStorage.setItem('data', JSON.stringify(formData));
-        form.reset();        
-    });
-    div.addEventListener('click', (e) => {
-        if(e.target.className === 'form_holder'){
-            div.remove();
-        }});
 
+    switch (type) {
+        case 'login':
+            form.innerHTML = getFormBody(['email', 'password'], '<button>log in</button>')
+            break;
+        case 'signin':
+            form.innerHTML = getFormBody([
+                    'fullname',
+                    'email',
+                    'phone',
+                    'address',
+                    'password'
+                ],
+                '<button>sign in</button>'
+            )
+            break;
+        case 'add':
+            form.innerHTML = getFormBody([
+                    'fullname',
+                    'email',
+                    'phone',
+                    'address',
+                    'desc'
+                ],
+                '<button>add</button>'
+            )
+            break;
+    }
+
+    subscribeFormEvents(form, div);
     div.append(form);
+
     return div;
 };
 
 
-function navListener({path}) {
-    const root = document.querySelector('#root');
-    if(path === 'contacts'){
-        getUsers().then(json => {
-            state.contacts = [...json];
-            root.append(contactsView({contacts: state.contacts}));
-        })
-    }else{
+const createNavListener = root => async ({path}) => {
+    if (path === 'contacts'){
+        state.contacts = await getUsers();
+        root.append(contactsView({contacts: state.contacts}));
+    } else {
         root.prepend(form({type: path}));
     }
 };
@@ -114,25 +176,41 @@ function contactRendering({contact, index}) {
             <h2>${contact.name}</h2>
             <h3>${contact.phone}</h3>
         </div>
-        <hr></hr>
+        <hr />
         `
 };
+
+function findParentWithClass(target, className) {
+    if (!target) {
+        return null
+    }
+
+    if (target.classList.contains(className)) {
+        return target;
+    }
+
+    return findParentWithClass(target.parentElement, className);
+}
 
 function contactsView({contacts}) {
     const div = document.createElement('div');
     div.className = 'contacts container';
     div.innerHTML = contacts.map((contact, index) => contactRendering({contact, index})).join('');
 
+    let currentActiveContact;
     div.addEventListener('click', (e) => {
-        for(let c of document.querySelectorAll('.contact')) {
-            c.classList.remove('active');
-        };
-        if(e.target.parentElement.className === 'contact'){
-            e.target.parentElement.classList.add('active');
-        }else if(e.target.className === 'contact'){
-            e.target.classList.add('active');
-        }        
+        const target = findParentWithClass(e.target, 'contact');
+        if (!target) {
+            return;
+        }
+
+        target.classList.add('active');
+        if (currentActiveContact) {
+            currentActiveContact.classList.remove('active');
+        }
+        currentActiveContact = target;
     });
+
     return div;
 };
 
